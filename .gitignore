@@ -1,0 +1,15 @@
+# Virtual Environment
+.venv/
+
+# Python Cache
+__pycache__/
+*.pyc
+
+# Logs
+emotion_log.csv
+
+# VS Code
+.vscode/
+
+# System Files
+.DS_Store
