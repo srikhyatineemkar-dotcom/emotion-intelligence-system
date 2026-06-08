@@ -1,54 +1,201 @@
 import cv2
 
-print("NEW UI RENDERER LOADED")
+print("PREMIUM UI RENDERER LOADED")
 
+# =========================
+# EMOTION COLORS
+# =========================
 
-def get_color(emotion):
+emotion_colors = {
 
-    colors = {
-        "happy": (0, 255, 0),        # Green
-        "sad": (255, 0, 0),          # Blue
-        "angry": (0, 0, 255),        # Red
-        "surprise": (0, 255, 255),   # Yellow
-        "fear": (128, 0, 128),       # Purple
-        "neutral": (255, 255, 255),  # White
-        "disgust": (0, 128, 0)       # Dark Green
-    }
+    "happy": (0, 255, 0),
 
-    return colors.get(emotion, (255, 255, 255))
+    "sad": (255, 0, 0),
 
+    "angry": (0, 0, 255),
 
-def draw_overlay(frame, emotion_data):
+    "fear": (255, 0, 255),
 
-    x = emotion_data['region']['x']
-    y = emotion_data['region']['y']
-    w = emotion_data['region']['w']
-    h = emotion_data['region']['h']
+    "surprise": (0, 255, 255),
 
-    emotion = emotion_data['emotion']
-    confidence = emotion_data['confidence']
+    "neutral": (200, 200, 200),
 
-    color = get_color(emotion)
+    "disgust": (0, 120, 0)
+}
 
-    # Face Box
+# =========================
+# DRAW PANEL
+# =========================
+
+def draw_panel(
+    frame,
+    x,
+    y,
+    w,
+    h,
+    color=(40, 40, 40)
+):
+
+    overlay = frame.copy()
+
+    cv2.rectangle(
+        overlay,
+        (x, y),
+        (x + w, y + h),
+        color,
+        -1
+    )
+
+    alpha = 0.4
+
+    cv2.addWeighted(
+        overlay,
+        alpha,
+        frame,
+        1 - alpha,
+        0,
+        frame
+    )
+
+# =========================
+# DRAW CONFIDENCE BAR
+# =========================
+
+def draw_confidence_bar(
+    frame,
+    confidence,
+    x,
+    y,
+    w,
+    h,
+    color
+):
+
+    # Background
     cv2.rectangle(
         frame,
         (x, y),
         (x + w, y + h),
-        color,
-        3
+        (80, 80, 80),
+        -1
     )
 
-    # Emotion Text
-    text = f"{emotion} ({confidence:.1f}%)"
+    # Filled bar
+    filled_width = int(
+        (confidence / 100) * w
+    )
+
+    cv2.rectangle(
+        frame,
+        (x, y),
+        (x + filled_width, y + h),
+        color,
+        -1
+    )
+
+# =========================
+# MAIN OVERLAY
+# =========================
+
+def draw_overlay(
+    frame,
+    emotion_data,
+    fps=0
+):
+
+    emotion = emotion_data[
+        'emotion'
+    ]
+
+    confidence = round(
+        emotion_data[
+            'confidence'
+        ],
+        1
+    )
+
+    color = emotion_colors.get(
+        emotion,
+        (255, 255, 255)
+    )
+
+    height, width, _ = frame.shape
+
+    # =========================
+    # TOP PANEL
+    # =========================
+
+    draw_panel(
+        frame,
+        15,
+        15,
+        380,
+        140
+    )
+
+    # Title
+    cv2.putText(
+        frame,
+        "Emotion Intelligence System",
+        (30, 45),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.8,
+        (255, 255, 255),
+        2
+    )
+
+    # Emotion
+    cv2.putText(
+        frame,
+        f"Emotion: {emotion.upper()}",
+        (30, 80),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.75,
+        color,
+        2
+    )
+
+    # Confidence
+    cv2.putText(
+        frame,
+        f"Confidence: {confidence}%",
+        (30, 110),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.6,
+        (255, 255, 255),
+        2
+    )
+
+    # Confidence bar
+    draw_confidence_bar(
+        frame,
+        confidence,
+        30,
+        125,
+        320,
+        15,
+        color
+    )
+
+    # =========================
+    # FPS PANEL
+    # =========================
+
+    draw_panel(
+        frame,
+        width - 170,
+        15,
+        150,
+        60
+    )
 
     cv2.putText(
         frame,
-        text,
-        (x, y - 10),
+        f"FPS: {fps}",
+        (width - 150, 52),
         cv2.FONT_HERSHEY_SIMPLEX,
-        0.9,
-        color,
+        0.7,
+        (0, 255, 0),
         2
     )
 

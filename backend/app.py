@@ -1,23 +1,38 @@
 import cv2
 import time
-import threading
 from collections import Counter
 
 from vision.emotion_engine import detect_emotion
-from vision.ui_renderer import draw_overlay
 
-from vision.voice_emotion import (
-    detect_voice_emotion
+from vision.ui_renderer import (
+    draw_overlay
 )
 
+from vision.analytics_engine import (
+    update_emotion_history,
+    get_dominant_emotion,
+    get_stability_score
+)
+
+from vision.timeline_graph import (
+    update_graph,
+    draw_graph
+)
+
+from vision.state_inference import (
+    infer_state
+)
+
+print("EMOTION INTELLIGENCE SYSTEM STARTED")
+
 # =========================
-# CAMERA
+# CAMERA INITIALIZATION
 # =========================
 
 cap = cv2.VideoCapture(0)
 
 # =========================
-# FACE SYSTEM
+# EMOTION BUFFER SYSTEM
 # =========================
 
 emotion_buffer = []
@@ -26,62 +41,11 @@ BUFFER_SIZE = 15
 
 stable_emotion = "neutral"
 
-last_face_log = time.time()
-
 # =========================
-# VOICE SYSTEM
-# =========================
-
-voice_emotion = "idle"
-
-voice_processing = False
-
-last_voice_check = 0
-
-VOICE_INTERVAL = 15
-
-# =========================
-# FPS
+# FPS VARIABLES
 # =========================
 
 prev_frame_time = 0
-
-# =========================
-# VOICE THREAD
-# =========================
-
-def process_voice():
-
-    global voice_emotion
-    global voice_processing
-
-    try:
-
-        print("\n====================")
-        print("VOICE ANALYSIS STARTED")
-        print("====================")
-
-        detected = (
-            detect_voice_emotion()
-        )
-
-        voice_emotion = detected
-
-        print(
-            "\nVOICE RESULT:",
-            voice_emotion
-        )
-
-        print("====================\n")
-
-    except Exception as e:
-
-        print(
-            "VOICE ERROR:",
-            e
-        )
-
-    voice_processing = False
 
 # =========================
 # MAIN LOOP
@@ -93,26 +57,26 @@ while True:
 
     if not ret:
 
-        break
+        print("Camera error")
 
-    current_time = time.time()
+        break
 
     try:
 
         # =========================
-        # FACE DETECTION
+        # DETECT EMOTION
         # =========================
 
         emotion_data = detect_emotion(
             frame
         )
 
-        detected_emotion = (
-            emotion_data['emotion']
-        )
+        detected_emotion = emotion_data[
+            'emotion'
+        ]
 
         # =========================
-        # EMOTION BUFFER
+        # EMOTION STABILIZATION
         # =========================
 
         emotion_buffer.append(
@@ -123,7 +87,6 @@ while True:
 
             emotion_buffer.pop(0)
 
-        # Majority vote
         stable_emotion = (
             Counter(
                 emotion_buffer
@@ -135,98 +98,36 @@ while True:
         )
 
         # =========================
-        # FACE LOGGING
+        # UPDATE ANALYTICS
         # =========================
 
-        if (
-            current_time
-            - last_face_log
-            > 3
-        ):
+        update_emotion_history(
+            stable_emotion
+        )
 
-            print(
-                "FACE STATE:",
-                stable_emotion
-            )
+        update_graph(
+            stable_emotion
+        )
 
-            last_face_log = (
-                current_time
-            )
+        dominant_emotion = (
+            get_dominant_emotion()
+        )
 
-        # =========================
-        # VOICE ANALYSIS
-        # =========================
-
-        if (
-            current_time
-            - last_voice_check
-            > VOICE_INTERVAL
-            and not voice_processing
-        ):
-
-            voice_processing = True
-
-            last_voice_check = (
-                current_time
-            )
-
-            threading.Thread(
-                target=process_voice,
-                daemon=True
-            ).start()
-
-        # =========================
-        # DRAW FACE OVERLAY
-        # =========================
-
-        frame = draw_overlay(
-            frame,
-            emotion_data
+        stability_score = (
+            get_stability_score()
         )
 
         # =========================
-        # FINAL STATE
+        # SMART AI STATE
         # =========================
 
-        final_state = (
-            f"FACE: "
-            f"{stable_emotion.upper()} | "
-            f"VOICE: "
-            f"{voice_emotion.upper()}"
-        )
-
-        cv2.putText(
-            frame,
-            final_state,
-            (20, 40),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.75,
-            (0, 0, 255),
-            2
+        smart_state = infer_state(
+            dominant_emotion,
+            stability_score
         )
 
         # =========================
-        # VOICE STATUS
-        # =========================
-
-        voice_status = (
-            "VOICE ACTIVE"
-            if voice_processing
-            else "VOICE READY"
-        )
-
-        cv2.putText(
-            frame,
-            voice_status,
-            (20, 80),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.6,
-            (255, 255, 0),
-            2
-        )
-
-        # =========================
-        # FPS
+        # FPS CALCULATION
         # =========================
 
         new_frame_time = time.time()
@@ -243,12 +144,57 @@ while True:
             new_frame_time
         )
 
+        # =========================
+        # DRAW PREMIUM UI
+        # =========================
+
+        frame = draw_overlay(
+            frame,
+            emotion_data,
+            fps
+        )
+
+        # =========================
+        # DRAW TIMELINE GRAPH
+        # =========================
+
+        frame = draw_graph(
+            frame
+        )
+
+        # =========================
+        # ANALYTICS DISPLAY
+        # =========================
+
         cv2.putText(
             frame,
-            f"FPS: {fps}",
-            (20, 120),
+            f"Dominant: "
+            f"{dominant_emotion.upper()}",
+            (20, 190),
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.6,
+            0.7,
+            (255, 255, 0),
+            2
+        )
+
+        cv2.putText(
+            frame,
+            f"Stability: "
+            f"{stability_score}%",
+            (20, 225),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (0, 255, 255),
+            2
+        )
+
+        cv2.putText(
+            frame,
+            f"AI State: "
+            f"{smart_state}",
+            (20, 260),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
             (0, 255, 0),
             2
         )
@@ -258,7 +204,7 @@ while True:
         print("ERROR:", e)
 
     # =========================
-    # DISPLAY
+    # SHOW WINDOW
     # =========================
 
     cv2.imshow(
@@ -266,7 +212,10 @@ while True:
         frame
     )
 
-    # Exit
+    # =========================
+    # EXIT KEY
+    # =========================
+
     if cv2.waitKey(1) & 0xFF == ord('q'):
 
         break
